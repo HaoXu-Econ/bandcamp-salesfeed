@@ -20,9 +20,13 @@ def main() -> None:
     now = int(time.time())
     request = urllib.request.Request(FEED_URL.format(now - 600), headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(request, timeout=30) as response:
+        status = response.status
         body = response.read()
 
-    feed = json.loads(body)  # stop here if Bandcamp did not return JSON
+    try:
+        feed = json.loads(body)
+    except json.JSONDecodeError:
+        sys.exit(f"HTTP {status}, not JSON ({len(body)} bytes): {body[:300]!r}")
     n_items = sum(len(event.get("items", [])) for event in feed.get("events", []))
     if n_items == 0:
         sys.exit("feed returned no sales: the endpoint may have changed")
