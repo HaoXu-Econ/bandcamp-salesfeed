@@ -1,0 +1,38 @@
+name: collect
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"   # every 5 min; GitHub may delay runs, the feed covers ~10 min
+  workflow_dispatch:         # allows a manual run from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Check out only the script, not the growing data folder.
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: collect.py
+          sparse-checkout-cone-mode: false
+
+      - run: python3 collect.py
+
+      - name: Commit the new file
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add --sparse data
+          git commit -q -m "data: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          for attempt in 1 2 3; do
+            git pull --rebase -q && git push -q && exit 0
+            sleep 5
+          done
+          exit 1
